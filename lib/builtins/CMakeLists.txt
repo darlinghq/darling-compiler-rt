@@ -401,14 +401,9 @@ if (DARLING)
 	)
 	#make_fat(compiler_rt)
 
-	set(CMAKE_AR "${CMAKE_BINARY_DIR}/src/external/cctools-port/cctools/ar/x86_64-apple-darwin11-ar")
-	set(CMAKE_RANLIB "${CMAKE_BINARY_DIR}/src/external/cctools-port/cctools/misc/ranlib")
+	add_darling_static_library(compiler_rt_static64 SOURCES $<TARGET_OBJECTS:compiler_rt_x86_64>)
 
-	add_library(compiler_rt_static64 STATIC $<TARGET_OBJECTS:compiler_rt_x86_64>)
-	add_dependencies(compiler_rt_static64 ranlib x86_64-apple-darwin11-ar)
-
-	add_library(compiler_rt_static32 STATIC $<TARGET_OBJECTS:compiler_rt_i386>)
-	add_dependencies(compiler_rt_static32 ranlib x86_64-apple-darwin11-ar)
+	add_darling_static_library(compiler_rt_static32 SOURCES $<TARGET_OBJECTS:compiler_rt_i386>)
 
 	install(TARGETS compiler_rt DESTINATION libexec/darling/usr/lib/system)
 
