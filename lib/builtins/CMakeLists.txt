@@ -8,10 +8,7 @@ if (DARLING)
 	set(HAVE_UNWIND_H 1)
 	#add_definitions(-U__APPLE__) # To use __ELF__
 	enable_language(C ASM)
-	
-	include_directories(${CMAKE_SOURCE_DIR}/src/libunwind/include)
-	include_directories(${CMAKE_SOURCE_DIR}/platform-include)
-	include_directories(${CMAKE_SOURCE_DIR}/src/libc/darwin)
+
 	set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -nostdlib -Wl,-no_arch_warnings")
 	set(DYLIB_INSTALL_NAME "/usr/lib/system/libcompiler_rt.dylib")
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -nostdinc")
