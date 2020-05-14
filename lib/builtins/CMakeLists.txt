@@ -385,11 +385,29 @@ if (DARLING)
 	else (TAGET_i386)
 		add_darling_object_library(compiler_rt_i386 empty.c)
 	endif (TARGET_i386)
+  
+	if (TARGET_ARM64)
+		nomuldefs("arm64")
+		add_darling_object_library(compiler_rt_arm64 ${arm64_SOURCES})
+		set_target_properties(compiler_rt_arm64 PROPERTIES COMPILE_FLAGS "-arch arm64")
+  else (TARGET_ARM64)
+		add_darling_object_library(compiler_rt_arm64 empty.c)
+  endif (TARGET_ARM64)
+
+  if (TARGET_x86_64 OR TARGET_i386)
+		set (compiler_rt_objects
+			$<TARGET_OBJECTS:compiler_rt_x86_64>
+			$<TARGET_OBJECTS:compiler_rt_i386>
+	)
+  elseif (TARGET_ARM64)
+		set (compiler_rt_objects
+			$<TARGET_OBJECTS:compiler_rt_arm64>
+		)
+  endif (TARGET_x86_64 OR TARGET_i386)
 
 	add_circular(compiler_rt FAT
 		OBJECTS
-			$<TARGET_OBJECTS:compiler_rt_x86_64>
-			$<TARGET_OBJECTS:compiler_rt_i386>
+			${compiler_rt_objects}
 		SIBLINGS
 			unwind
 			system_pthread
@@ -401,7 +419,11 @@ if (DARLING)
 	)
 	#make_fat(compiler_rt)
 
-	add_darling_static_library(compiler_rt_static64 SOURCES $<TARGET_OBJECTS:compiler_rt_x86_64>)
+	if (TARGET_x86_64)
+		add_darling_static_library(compiler_rt_static64 SOURCES $<TARGET_OBJECTS:compiler_rt_x86_64>)
+	elseif (TARGET_ARM64)
+		add_darling_static_library(compiler_rt_static64 SOURCES $<TARGET_OBJECTS:compiler_rt_arm64>)
+	endif (TARGET_x86_64)
 
 	add_darling_static_library(compiler_rt_static32 SOURCES $<TARGET_OBJECTS:compiler_rt_i386>)
 
