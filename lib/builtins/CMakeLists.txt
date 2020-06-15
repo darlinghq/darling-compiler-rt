@@ -412,7 +412,8 @@ if (DARLING)
 			system_malloc
 			system_c
 			system_kernel
-			system_dyld
+      system_dyld
+      platform
 	)
 	#make_fat(compiler_rt)
 
