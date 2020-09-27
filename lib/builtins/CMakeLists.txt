@@ -367,40 +367,43 @@ function(nomuldefs arch)
 endfunction(nomuldefs)
 
 if (DARLING)
-	if (TARGET_x86_64)
-		nomuldefs("x86_64")
-		add_darling_object_library(compiler_rt_x86_64 ${x86_64_SOURCES})
-		set_target_properties(compiler_rt_x86_64 PROPERTIES COMPILE_FLAGS "-arch x86_64")
-	else (TARGET_x86_64)
-		add_darling_object_library(compiler_rt_x86_64 empty.c)
-	endif (TARGET_x86_64)
+	if (BUILD_TARGET_64BIT)
+		nomuldefs(${APPLE_ARCH_64BIT})
 
-	if (TARGET_i386)
-		nomuldefs("i386")
+    if (TARGET_x86_64)
+		  add_darling_object_library(compiler_rt_x86_64 ${x86_64_SOURCES})
+    elseif (TARGET_ARM64)
+      add_darling_object_library(compiler_rt_arm64 ${arm64_SOURCES})
+    endif ()
+
+    set_target_properties(compiler_rt_${APPLE_ARCH_64BIT} PROPERTIES COMPILE_FLAGS "-arch ${APPLE_ARCH_64BIT}")
+	endif (BUILD_TARGET_64BIT)
+
+	if (BUILD_TARGET_32BIT)
+		nomuldefs(${APPLE_ARCH_32BIT})
+
+    if (TARGET_i386)
 		add_darling_object_library(compiler_rt_i386 ${i386_SOURCES})
-		set_target_properties(compiler_rt_i386 PROPERTIES COMPILE_FLAGS "-arch i386")
-	else (TAGET_i386)
-		add_darling_object_library(compiler_rt_i386 empty.c)
-	endif (TARGET_i386)
-  
-	if (TARGET_ARM64)
-		nomuldefs("arm64")
-		add_darling_object_library(compiler_rt_arm64 ${arm64_SOURCES})
-		set_target_properties(compiler_rt_arm64 PROPERTIES COMPILE_FLAGS "-arch arm64")
-  else (TARGET_ARM64)
-		add_darling_object_library(compiler_rt_arm64 empty.c)
-  endif (TARGET_ARM64)
+    endif ()
 
-  if (TARGET_x86_64 OR TARGET_i386)
+		set_target_properties(compiler_rt_${APPLE_ARCH_32BIT} PROPERTIES COMPILE_FLAGS "-arch ${APPLE_ARCH_32BIT}")
+	endif (BUILD_TARGET_32BIT)
+
+
+  if (BUILD_TARGET_64BIT AND BUILD_TARGET_32BIT)
 		set (compiler_rt_objects
-			$<TARGET_OBJECTS:compiler_rt_x86_64>
-			$<TARGET_OBJECTS:compiler_rt_i386>
+			$<TARGET_OBJECTS:compiler_rt_${APPLE_ARCH_64BIT}>
+			$<TARGET_OBJECTS:compiler_rt_${APPLE_ARCH_32BIT}>
 	)
-  elseif (TARGET_ARM64)
+  elseif (BUILD_TARGET_64BIT)
 		set (compiler_rt_objects
-			$<TARGET_OBJECTS:compiler_rt_arm64>
+			$<TARGET_OBJECTS:compiler_rt_${APPLE_ARCH_64BIT}>
 		)
-  endif (TARGET_x86_64 OR TARGET_i386)
+  elseif (BUILD_TARGET_32BIT)
+    set (compiler_rt_objects
+			$<TARGET_OBJECTS:compiler_rt_${APPLE_ARCH_32BIT}>
+		)
+  endif (BUILD_TARGET_64BIT AND BUILD_TARGET_32BIT)
 
 	add_circular(compiler_rt FAT
 		OBJECTS
@@ -417,13 +420,12 @@ if (DARLING)
 	)
 	#make_fat(compiler_rt)
 
-	if (TARGET_x86_64)
-		add_darling_static_library(compiler_rt_static64 SOURCES $<TARGET_OBJECTS:compiler_rt_x86_64>)
-	elseif (TARGET_ARM64)
-		add_darling_static_library(compiler_rt_static64 SOURCES $<TARGET_OBJECTS:compiler_rt_arm64>)
-	endif (TARGET_x86_64)
-
-	add_darling_static_library(compiler_rt_static32 SOURCES $<TARGET_OBJECTS:compiler_rt_i386>)
+	if (BUILD_TARGET_64BIT)
+		add_darling_static_library(compiler_rt_static64 SOURCES $<TARGET_OBJECTS:compiler_rt_${APPLE_ARCH_64BIT}>)
+	endif (BUILD_TARGET_64BIT)
+  if (BUILD_TARGET_32BIT)
+	  add_darling_static_library(compiler_rt_static32 SOURCES $<TARGET_OBJECTS:compiler_rt_${APPLE_ARCH_32BIT}>)
+  endif (BUILD_TARGET_32BIT)
 
 	install(TARGETS compiler_rt DESTINATION libexec/darling/usr/lib/system)
 
