@@ -159,7 +159,7 @@ static __inline Lock *lock_for_pointer(void *ptr) {
 
 /// An atomic load operation.  This is atomic with respect to the source
 /// pointer only.
-void __atomic_load_c(int size, void *src, void *dest, int model) {
+void __atomic_load_c(size_t size, void *src, void *dest, int model) {
 #define LOCK_FREE_ACTION(type) \
     *((type*)dest) = __c11_atomic_load((_Atomic(type)*)src, model);\
     return;
@@ -173,9 +173,9 @@ void __atomic_load_c(int size, void *src, void *dest, int model) {
 
 /// An atomic store operation.  This is atomic with respect to the destination
 /// pointer only.
-void __atomic_store_c(int size, void *dest, void *src, int model) {
+void __atomic_store_c(size_t size, void *dest, void *src, int model) {
 #define LOCK_FREE_ACTION(type) \
-    __c11_atomic_store((_Atomic(type)*)dest, *(type*)dest, model);\
+    __c11_atomic_store((_Atomic(type)*)dest, *(type*)src, model);\
     return;
   LOCK_FREE_CASES();
 #undef LOCK_FREE_ACTION
@@ -190,7 +190,7 @@ void __atomic_store_c(int size, void *dest, void *src, int model) {
 /// they  are not, then this stores the current value from *ptr in *expected.
 ///
 /// This function returns 1 if the exchange takes place or 0 if it fails. 
-int __atomic_compare_exchange_c(int size, void *ptr, void *expected,
+int __atomic_compare_exchange_c(size_t size, void *ptr, void *expected,
     void *desired, int success, int failure) {
 #define LOCK_FREE_ACTION(type) \
   return __c11_atomic_compare_exchange_strong((_Atomic(type)*)ptr, (type*)expected,\
@@ -211,7 +211,7 @@ int __atomic_compare_exchange_c(int size, void *ptr, void *expected,
 
 /// Performs an atomic exchange operation between two pointers.  This is atomic
 /// with respect to the target address.
-void __atomic_exchange_c(int size, void *ptr, void *val, void *old, int model) {
+void __atomic_exchange_c(size_t size, void *ptr, void *val, void *old, int model) {
 #define LOCK_FREE_ACTION(type) \
     *(type*)old = __c11_atomic_exchange((_Atomic(type)*)ptr, *(type*)val,\
         model);\
