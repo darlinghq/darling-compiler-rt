@@ -409,6 +409,18 @@ if (DARLING)
 
 	install(TARGETS compiler_rt DESTINATION libexec/darling/usr/lib/system)
 
+	# libclang_rt.osx.a: the part of the toolchain's runtime archive that the
+	# compiler's availability checks (@available, __builtin_available) call.
+	# On macOS it is linked statically into each program, not shipped in the
+	# system, so it goes into the SDK for programs built with a host clang.
+	# os_version_check.c is imported unmodified from LLVM (see
+	# LLVM-LICENSE.TXT); it is built for the oldest deployment target so that
+	# linking it never raises the minimum OS version of a program.
+	add_darling_static_library(clang_rt_osx FAT SOURCES os_version_check.c)
+	set_target_properties(clang_rt_osx PROPERTIES OUTPUT_NAME clang_rt.osx)
+	set_property(TARGET clang_rt_osx APPEND_STRING PROPERTY
+		COMPILE_FLAGS " -mmacosx-version-min=10.6")
+
 	return ()
 endif (DARLING)
 
