@@ -367,15 +367,32 @@ endfunction(nomuldefs)
 
 if (DARLING)
 	if (BUILD_TARGET_64BIT)
-		nomuldefs("${APPLE_ARCH_64BIT}")
-		if (TARGET_x86_64)
-			add_darling_object_library(compiler_rt_64bit ${x86_64_SOURCES})
-		elseif (TARGET_ARM64)
-			add_darling_object_library(compiler_rt_64bit ${arm64_SOURCES})
-		endif ()
-		set_target_properties(compiler_rt_64bit PROPERTIES COMPILE_FLAGS "-arch ${APPLE_ARCH_64BIT}")
+		# One object library per 64-bit slice, each compiled for its own architecture only: the
+		# sources differ per architecture. `compiler_rt_64bit` is the primary slice's library, other
+		# slices get `compiler_rt_64bit_<arch>`.
+		set(compiler_rt_64bit_objects "")
+		foreach (arch64 IN LISTS APPLE_ARCH_64BIT_LIST)
+			nomuldefs("${arch64}")
+			if (arch64 STREQUAL APPLE_ARCH_64BIT)
+				set(compiler_rt_slice_target compiler_rt_64bit)
+			else ()
+				set(compiler_rt_slice_target compiler_rt_64bit_${arch64})
+			endif ()
+			if (arch64 STREQUAL "x86_64")
+				add_darling_object_library(${compiler_rt_slice_target} ${x86_64_SOURCES})
+			elseif (arch64 STREQUAL "arm64")
+				add_darling_object_library(${compiler_rt_slice_target} ${arm64_SOURCES})
+			else ()
+				message(FATAL_ERROR "compiler-rt: no sources for the ${arch64} slice")
+			endif ()
+			set_target_properties(${compiler_rt_slice_target} PROPERTIES COMPILE_FLAGS "-arch ${arch64}")
+			list(APPEND compiler_rt_64bit_objects $<TARGET_OBJECTS:${compiler_rt_slice_target}>)
+			set(compiler_rt_slice_target_${arch64} ${compiler_rt_slice_target})
+		endforeach (arch64)
+		unset(compiler_rt_slice_target)
 	else (NO_BUILD_TARGET_64BIT)
 		add_darling_object_library(compiler_rt_64bit empty.c)
+		set(compiler_rt_64bit_objects $<TARGET_OBJECTS:compiler_rt_64bit>)
 	endif ()
 
 	if (BUILD_TARGET_32BIT)
@@ -390,7 +407,7 @@ if (DARLING)
 
 	add_circular(compiler_rt FAT
 		OBJECTS
-			$<TARGET_OBJECTS:compiler_rt_64bit>
+			${compiler_rt_64bit_objects}
 			$<TARGET_OBJECTS:compiler_rt_32bit>
 		SIBLINGS
 			unwind
@@ -404,7 +421,18 @@ if (DARLING)
 	)
 	#make_fat(compiler_rt)
 
-	add_darling_static_library(compiler_rt_static64 SOURCES $<TARGET_OBJECTS:compiler_rt_64bit>)
+	list(LENGTH APPLE_ARCH_64BIT_LIST compiler_rt_slice_count)
+	if (BUILD_TARGET_64BIT AND compiler_rt_slice_count GREATER 1)
+		# A static archive cannot mix architectures: one archive per slice, joined with lipo.
+		foreach (arch64 IN LISTS APPLE_ARCH_64BIT_LIST)
+			set(DARLING_LIB_64BIT_ARCH ${arch64})
+			add_darling_static_library(compiler_rt_static64_${arch64} 64BIT_ONLY SOURCES $<TARGET_OBJECTS:${compiler_rt_slice_target_${arch64}}>)
+			unset(DARLING_LIB_64BIT_ARCH)
+		endforeach (arch64)
+		darling_lipo_static_library_slices(compiler_rt_static64 ${APPLE_ARCH_64BIT_LIST})
+	else ()
+		add_darling_static_library(compiler_rt_static64 SOURCES $<TARGET_OBJECTS:compiler_rt_64bit>)
+	endif ()
 	add_darling_static_library(compiler_rt_static32 SOURCES $<TARGET_OBJECTS:compiler_rt_32bit>)
 
 	install(TARGETS compiler_rt DESTINATION libexec/darling/usr/lib/system)
