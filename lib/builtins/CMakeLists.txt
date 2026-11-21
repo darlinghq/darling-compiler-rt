@@ -366,32 +366,21 @@ function(nomuldefs arch)
 endfunction(nomuldefs)
 
 if (DARLING)
-	if (BUILD_TARGET_64BIT)
-		nomuldefs("${APPLE_ARCH_64BIT}")
-		if (TARGET_x86_64)
-			add_darling_object_library(compiler_rt_64bit ${x86_64_SOURCES})
-		elseif (TARGET_ARM64)
-			add_darling_object_library(compiler_rt_64bit ${arm64_SOURCES})
+	# The sources differ per architecture: one object library per slice, compiler_rt_<arch>,
+	# compiled for that slice only.
+	set(compiler_rt_arch_objects "")
+	foreach (arch IN LISTS DARLING_ARCHS)
+		if (NOT DEFINED ${arch}_SOURCES)
+			message(FATAL_ERROR "compiler-rt: no sources for the ${arch} slice")
 		endif ()
-		set_target_properties(compiler_rt_64bit PROPERTIES COMPILE_FLAGS "-arch ${APPLE_ARCH_64BIT}")
-	else (NO_BUILD_TARGET_64BIT)
-		add_darling_object_library(compiler_rt_64bit empty.c)
-	endif ()
-
-	if (BUILD_TARGET_32BIT)
-		nomuldefs("${APPLE_ARCH_32BIT}")
-		if (TARGET_i386)
-			add_darling_object_library(compiler_rt_32bit ${i386_SOURCES})
-		endif ()
-		set_target_properties(compiler_rt_32bit PROPERTIES COMPILE_FLAGS "-arch ${APPLE_ARCH_32BIT}")
-	else (NO_BUILD_TARGET_32BIT)
-		add_darling_object_library(compiler_rt_32bit empty.c)
-	endif ()
+		nomuldefs("${arch}")
+		add_darling_object_library(compiler_rt_${arch} ARCHS ${arch} SOURCES ${${arch}_SOURCES})
+		list(APPEND compiler_rt_arch_objects $<TARGET_OBJECTS:compiler_rt_${arch}>)
+	endforeach ()
 
 	add_circular(compiler_rt FAT
 		OBJECTS
-			$<TARGET_OBJECTS:compiler_rt_64bit>
-			$<TARGET_OBJECTS:compiler_rt_32bit>
+			${compiler_rt_arch_objects}
 		SIBLINGS
 			unwind
 			system_pthread
@@ -404,8 +393,12 @@ if (DARLING)
 	)
 	#make_fat(compiler_rt)
 
-	add_darling_static_library(compiler_rt_static64 SOURCES $<TARGET_OBJECTS:compiler_rt_64bit>)
-	add_darling_static_library(compiler_rt_static32 SOURCES $<TARGET_OBJECTS:compiler_rt_32bit>)
+	# The static library dyld links: one archive per slice, joined into compiler_rt_static with lipo.
+	foreach (arch IN LISTS DARLING_ARCHS)
+		add_darling_static_library(compiler_rt_static_${arch} ARCHS ${arch}
+			SOURCES $<TARGET_OBJECTS:compiler_rt_${arch}>)
+	endforeach ()
+	darling_lipo_static_library_slices(compiler_rt_static ${DARLING_ARCHS})
 
 	install(TARGETS compiler_rt DESTINATION libexec/darling/usr/lib/system)
 
